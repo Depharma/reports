@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Отправитель отчётов</title>
+  <style>
+    :root{
+      --primary:#560087;
+      --bg:#f7f7f8;
+      --text:#111;
+      --muted:#6a6a6a;
+      --stroke:#e9e9ee;
+      --radius:16px;
+      --shadow:0 10px 24px rgba(0,0,0,.06);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+    .wrap{max-width:560px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 18px)}
+
+    /* Tabs */
+    .tabs{display:flex;gap:10px;margin:4px 0 14px}
+    .tab{
+      flex:1;border:1px solid var(--stroke);background:#fff;border-radius:999px;padding:10px 12px;
+      text-align:center;font-weight:800;font-size:14px;transition:.18s ease;box-shadow:0 2px 10px rgba(0,0,0,.02)
+    }
+    .tab:hover{transform:translateY(-1px)}
+    .tab.active{color:#fff;background:var(--primary);border-color:var(--primary);box-shadow:0 8px 20px rgba(86,0,135,.18)}
+
+    .card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+    h1{margin:0 0 10px;font-size:20px}
+    .sub{color:var(--muted);font-size:13px;margin-bottom:14px}
+
+    label{display:block;font-size:13px;color:#444;margin:14px 0 6px}
+    input,select,textarea{
+      width:100%;padding:12px;border-radius:12px;border:1px solid var(--stroke);background:#fff;font-size:16px;outline:none;
+      transition:border-color .15s ease, box-shadow .15s ease
+    }
+    input:focus,select:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(86,0,135,.14)}
+    textarea{min-height:88px;resize:vertical}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .hint{font-size:12px;color:var(--muted);margin-top:6px}
+    .hidden{display:none!important}
+
+    /* SEND button with animations */
+    .btn{
+      position:relative;overflow:hidden;margin-top:16px;width:100%;border:0;border-radius:14px;
+      background:var(--primary);color:#fff;padding:14px 16px;font-size:16px;font-weight:800;
+      box-shadow:0 10px 22px rgba(86,0,135,.22);cursor:pointer;transition:transform .15s ease, box-shadow .15s ease
+    }
+    .btn:hover{animation:pulse 1.3s infinite}
+    .btn:active{transform:translateY(1px)}
+    @keyframes pulse{0%{box-shadow:0 10px 22px rgba(86,0,135,.22)}50%{box-shadow:0 14px 28px rgba(86,0,135,.3)}100%{box-shadow:0 10px 22px rgba(86,0,135,.22)}}
+    /* ripple on click */
+    .btn .ripple{
+      position:absolute;border-radius:50%;transform:scale(0);background:rgba(255,255,255,.35);animation:ripple .6s linear
+    }
+    @keyframes ripple{to{transform:scale(4);opacity:0}}
+    /* loading state */
+    .btn.loading{pointer-events:none;opacity:.9;animation:none}
+    .btn.loading .btn-text{opacity:0}
+    .btn .spinner{
+      position:absolute;inset:0;display:none;align-items:center;justify-content:center
+    }
+    .btn.loading .spinner{display:flex}
+    .spin{
+      width:18px;height:18px;border-radius:50%;border:3px solid rgba(255,255,255,.45);border-top-color:#fff;animation:spin .8s linear infinite
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    .note{font-size:12px;color:var(--muted);margin-top:10px;text-align:center}
+
+    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 14px);
+      background:#111;color:#fff;padding:10px 14px;border-radius:999px;font-size:14px;box-shadow:var(--shadow);
+      opacity:0;pointer-events:none;transition:opacity .25s ease}
+    .toast.show{opacity:1}
+
+    /* ======= Вкладка «Касса · Склад» ======= */
+    .row-2{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:10px}
+    .btn-refresh{
+      border:1.5px solid var(--primary);color:var(--primary);background:#fff;padding:10px 16px;border-radius:999px;
+      font-weight:800;letter-spacing:.2px;box-shadow:0 8px 18px rgba(86,0,135,.12);transition:.18s ease
+    }
+    .btn-refresh:hover{transform:translateY(-1px)}
+    .btn-refresh:active{transform:translateY(0)}
+
+    /* segmented */
+    .seg{display:grid;grid-template-columns:1fr 1fr;background:#f2eef5;border:1px solid #e7dff1;border-radius:12px;padding:4px;margin-bottom:12px}
+    .seg button{
+      border:0;background:transparent;padding:10px 8px;border-radius:10px;font-weight:800;color:#3d3d3d;transition:.18s
+    }
+    .seg button.active{background:var(--primary);color:#fff;box-shadow:0 6px 16px rgba(86,0,135,.18)}
+    .seg button:not(.active):hover{background:#fff}
+
+    /* Касса строка как на макете */
+    .cash-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;margin-top:18px}
+    .cash-label{font-weight:800;font-size:18px}
+    .cash-amount{font-weight:900;font-size:34px;line-height:1}
+
+    /* Склад список без плашек */
+    .list{display:flex;flex-direction:column;gap:12px;margin-top:4px}
+    .item{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:4px 0}
+    .name{font-size:15px}
+    .qty{font-weight:800;font-size:18px;line-height:1}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="tabs">
+      <div id="tabReport" class="tab active">Отправка отчёта</div>
+      <div id="tabView" class="tab">Касса · Склад</div>
+    </div>
+
+    <!-- Вкладка 1: Отправка отчёта -->
+    <div id="viewReport" class="card">
+      <h1>Отправитель отчётов</h1>
+      <div class="sub"></div>
+
+      <label>Ваше имя</label>
+      <input id="author" type="text" placeholder="Эркинов Манастерак" autocomplete="name" />
+      <div class="hint"></div>
+
+      <label>Раздел</label>
+      <select id="mode">
+        <option value="finance">Финансы</option>
+        <option value="products">Продукты</option>
+      </select>
+
+      <div id="opBlock">
+        <label>Операция</label>
+        <select id="operation"></select>
+      </div>
+
+      <div id="productBlock" class="hidden">
+        <label>Продукт</label>
+        <select id="product"></select>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Количество / Сумма</label>
+          <input id="amount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Напр. 1500 сом" />
+        </div>
+        <div>
+          <label>Дата</label>
+          <input id="date" type="date" />
+        </div>
+      </div>
+
+      <label>Комментарий</label>
+      <textarea id="comment" placeholder="Коротко о сути операции..."></textarea>
+
+      <button id="sendBtn" class="btn">
+        <span class="btn-text">Отправить</span>
+        <span class="spinner"><span class="spin"></span></span>
+      </button>
+      <div class="note"></div>
+    </div>
+
+    <!-- Вкладка 2: Касса / Склад -->
+    <div id="viewKS" class="card hidden">
+      <div class="row-2">
+        <h1 style="margin:0">Касса · Склад</h1>
+        <button id="refreshBtn" class="btn-refresh">Обновить</button>
+      </div>
+
+      <div class="seg">
+        <button id="btnCash" class="active">Касса</button>
+        <button id="btnStock">Склад</button>
+      </div>
+
+      <div id="cashBox">
+        <div class="cash-row">
+          <div class="cash-label">Сумма в кассе</div>
+          <div class="cash-amount" id="cashAmt">—</div>
+        </div>
+      </div>
+
+      <div id="stockBox" class="hidden">
+        <div class="sub" style="margin-bottom:0">Остатки по складу</div>
+        <div id="stockList" class="list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast">Готово</div>
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx41B0U-dDrA2PoQcnI7wFOYMrHsOUgKsOoKM4LsaBKKayBLaOWqZD0JfZXz6vsquEPEQ/exec";
+
+    const $ = (id) => document.getElementById(id);
+    const toast = (msg) => { const t=$('toast'); t.textContent = msg; t.className='toast show'; setTimeout(()=>t.className='toast', 2000); };
+
+    /* -------- Tabs -------- */
+    function showTab(which){
+      const r=$('viewReport'), k=$('viewKS'), tr=$('tabReport'), tv=$('tabView');
+      if(which==='report'){ r.classList.remove('hidden'); k.classList.add('hidden'); tr.classList.add('active'); tv.classList.remove('active'); }
+      else{ r.classList.add('hidden'); k.classList.remove('hidden'); tr.classList.remove('active'); tv.classList.add('active'); }
+    }
+    $('tabReport').onclick=()=>showTab('report');
+    $('tabView').onclick=()=>showTab('ks');
+
+    /* -------- Operations -------- */
+    const OPS={ finance:[{v:'Приход',t:'Приход'},{v:'Расход',t:'Расход'}], products:[{v:'Приход',t:'Приход'},{v:'Выдача',t:'Выдача'}] };
+    function fillOps(mode){ const el=$('operation'); el.innerHTML=''; OPS[mode].forEach(o=>{ const opt=document.createElement('option'); opt.value=o.v; opt.textContent=o.t; el.appendChild(opt); }); }
+    function setToday(){ const d=new Date(), pad=n=>String(n).padStart(2,'0'); $('date').value=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+    function toggleBlocks(){ const mode=$('mode').value; $('productBlock').classList.toggle('hidden',mode!=='products'); fillOps(mode); if(mode==='products') loadProductsNames(); }
+
+    /* -------- Local storage name (autosave) -------- */
+    function persistAuthor(){ localStorage.setItem('report_author',$('author').value.trim()); }
+    function restoreAuthor(){ const a=localStorage.getItem('report_author'); if(a) $('author').value=a; }
+    ['input','blur','change'].forEach(ev=>$('author').addEventListener(ev,persistAuthor));
+
+    /* -------- Fancy ripple on Send -------- */
+    $('sendBtn').addEventListener('click', (e)=>{
+      const btn=e.currentTarget;
+      // ripple
+      const circle=document.createElement('span');
+      const d=Math.max(btn.clientWidth,btn.clientHeight);
+      circle.style.width=circle.style.height=d+'px';
+      const rect=btn.getBoundingClientRect();
+      circle.style.left=(e.clientX-rect.left - d/2)+'px';
+      circle.style.top=(e.clientY-rect.top - d/2)+'px';
+      circle.className='ripple';
+      const oldRipple=btn.getElementsByClassName('ripple')[0];
+      if(oldRipple){ oldRipple.remove(); }
+      btn.appendChild(circle);
+    }, {passive:true});
+
+    /* -------- API -------- */
+    async function loadProductsNames(){
+      try{
+        const res=await fetch(SCRIPT_URL+'?action=products'); const data=await res.json();
+        const list=Array.isArray(data.products)?data.products:[]; const el=$('product'); el.innerHTML='';
+        list.forEach(name=>{ const opt=document.createElement('option'); opt.value=name; opt.textContent=name; el.appendChild(opt); });
+        if(!list.length){ const opt=document.createElement('option'); opt.textContent='(Список пуст)'; el.appendChild(opt); }
+      }catch(err){ console.error(err); toast('Не удалось загрузить продукты'); }
+    }
+    async function loadCash(){
+      try{
+        const res=await fetch(SCRIPT_URL+'?action=cash'); const data=await res.json();
+        $('cashAmt').textContent = (data.amount!=null? data.amount : '—');
+      }catch(err){ console.error(err); toast('Ошибка загрузки кассы'); }
+    }
+    async function loadStock(){
+      try{
+        const res=await fetch(SCRIPT_URL+'?action=stock'); const data=await res.json();
+        const list=Array.isArray(data.stock)?data.stock:[]; const box=$('stockList'); box.innerHTML='';
+        if(!list.length){ box.innerHTML='<div class="hint">Пусто</div>'; return; }
+        list.forEach(row=>{
+          const item=document.createElement('div'); item.className='item';
+          const name=document.createElement('div'); name.className='name'; name.textContent=row.name||'(без названия)';
+          const qty=document.createElement('div'); qty.className='qty'; qty.textContent=(row.qty!=null?row.qty:'—');
+          item.appendChild(name); item.appendChild(qty); box.appendChild(item);
+        });
+      }catch(err){ console.error(err); toast('Ошибка загрузки склада'); }
+    }
+
+    // segmented switch
+    function showCash(){ $('btnCash').classList.add('active'); $('btnStock').classList.remove('active'); $('cashBox').classList.remove('hidden'); $('stockBox').classList.add('hidden'); loadCash(); }
+    function showStock(){ $('btnCash').classList.remove('active'); $('btnStock').classList.add('active'); $('cashBox').classList.add('hidden'); $('stockBox').classList.remove('hidden'); loadStock(); }
+    $('btnCash').onclick=showCash; $('btnStock').onclick=showStock;
+    $('refreshBtn').onclick=()=>{ if(!$('cashBox').classList.contains('hidden')) loadCash(); else loadStock(); };
+
+    /* -------- Send -------- */
+    async function send(){
+      const author=$('author').value.trim();
+      const mode=$('mode').value, operation=$('operation').value;
+      const amount=parseFloat(($('amount').value||'').replace(',','.'));
+      const date=$('date').value, comment=$('comment').value.trim();
+      const product=(mode==='products')?$('product').value:'';
+      if(!author){ toast('Укажите имя'); return; }
+      if(!(amount>0)){ toast('Укажите количество/сумму > 0'); return; }
+      if(!date){ toast('Выберите дату'); return; }
+
+      const payload={author,mode,operation,amount,date,comment,product};
+      const btn=$('sendBtn'); btn.classList.add('loading'); btn.disabled=true;
+      try{
+        const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
+        const data=await res.json();
+        if(data && data.ok){
+          toast('Сохранено');
+          $('comment').value=''; $('amount').value='';
+          persistAuthor();
+        }else{ throw new Error(data && data.error || 'Ошибка'); }
+      }catch(err){ console.error(err); toast('Ошибка сохранения'); }
+      finally{ btn.classList.remove('loading'); btn.disabled=false; }
+    }
+
+    // init
+    restoreAuthor(); fillOps('finance'); setToday();
+    $('mode').addEventListener('change',toggleBlocks);
+    $('sendBtn').addEventListener('click',send);
+    // по умолчанию при входе во вкладку Касса сразу показать сумму
+    showCash();
+  </script>
+</body>
+</html>
